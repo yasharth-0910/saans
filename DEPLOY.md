@@ -44,10 +44,10 @@ Paste a token with **write** access from https://huggingface.co/settings/tokens.
 Then upload (run this again after every backend change; each upload triggers a rebuild):
 
 ```bash
-backend/.venv/bin/hf upload <your-username>/saans-api . . --repo-type space --include "Dockerfile" --include "backend/*" --include "data/grap_rules.json" --exclude "*/.venv/*" --exclude "*__pycache__*" --exclude "*.pytest_cache*"
+backend/.venv/bin/hf upload <your-username>/saans-api . . --repo-type space --include "Dockerfile" --include "backend/*" --include "data/grap_rules.json" --exclude "*/.venv/*" --exclude "*__pycache__*" --exclude "*.pytest_cache*" --exclude "*.env*"
 ```
 
-This sends only the Dockerfile, `backend/` and the rules file. Your `.env`, database and uploads stay local.
+This sends only the Dockerfile, `backend/` and the rules file. Any `.env` file, the database and uploads stay local; the API key reaches the Space only as the secret you set above.
 
 ### Check it
 

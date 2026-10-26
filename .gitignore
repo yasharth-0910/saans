@@ -1,4 +1,11 @@
-.env
+# Secrets: every .env file anywhere, except the committed examples
+.env*
+!.env.example
+*.pem
+.claude/settings.local.json
+.vercel/
+.DS_Store
+
 data/uploads/
 data/debug/
 data/*.db
@@ -6,6 +13,9 @@ data/*.sqlite*
 node_modules/
 .venv/
 __pycache__/
+.pytest_cache/
+.next/
+*.tsbuildinfo
 
 # Meta docs cache (Meta's content, not ours; see docs/META_API_NOTES.md)
 .meta-docs/
