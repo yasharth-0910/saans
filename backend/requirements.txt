@@ -1,0 +1,8 @@
+openai
+meta-sam-parser>=0.1.0
+fastapi
+uvicorn
+opencv-python
+python-dotenv
+python-multipart
+pytest

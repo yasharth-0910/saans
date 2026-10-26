@@ -1,0 +1,42 @@
+[
+  {
+    "id": "S1-OPEN-BURNING",
+    "stage": 1,
+    "title": "No open burning of biomass or municipal solid waste",
+    "rule_text": "From Stage I onwards, open burning of biomass and municipal solid waste is prohibited across NCR, and agencies must make sure there are no fires at landfill sites and dumpsites.",
+    "violation_types": ["garbage_burning"],
+    "source": "CAQM GRAP Stage I actions (revised schedule approved 28 Sep 2026); CAQM Stage I invocation press release, 16 Apr 2026"
+  },
+  {
+    "id": "S1-CD-DUST",
+    "stage": 1,
+    "title": "Dust control at construction and demolition sites",
+    "rule_text": "From Stage I onwards, construction and demolition sites must follow the dust mitigation rules and guidelines, including covering of exposed material and use of anti-smog guns in proportion to the construction area of the project.",
+    "violation_types": ["construction_dust"],
+    "source": "CAQM GRAP Stage I actions (revised schedule approved 28 Sep 2026); CAQM Stage I invocation press release, 16 Apr 2026"
+  },
+  {
+    "id": "S1-CD-WASTE-DUMPING",
+    "stage": 1,
+    "title": "No dumping of construction or municipal waste on open land",
+    "rule_text": "From Stage I onwards, municipal solid waste and construction and demolition waste must be lifted regularly and taken to designated sites, and must not be dumped illegally on open land.",
+    "violation_types": ["uncovered_debris"],
+    "source": "CAQM GRAP Stage I actions (revised schedule approved 28 Sep 2026); CAQM Stage I invocation press release, 16 Apr 2026"
+  },
+  {
+    "id": "S1-CD-TRANSPORT",
+    "stage": 1,
+    "title": "Construction material and debris must be covered in transit",
+    "rule_text": "Under the construction and demolition dust mitigation measures that GRAP Stage I requires to be enforced, vehicles carrying construction material or debris must keep the load covered so dust does not escape on the road.",
+    "violation_types": ["uncovered_vehicle"],
+    "source": "Dust mitigation measures for C&D activities, enforced under CAQM GRAP Stage I. VERIFY exact wording in the C&D dust mitigation guidelines before the demo."
+  },
+  {
+    "id": "S3-CD-RESTRICTION",
+    "stage": 3,
+    "title": "Construction and demolition activity restricted",
+    "rule_text": "At Stage III, most construction and demolition activity across NCR is stopped, apart from exempted categories such as essential public projects. Dust-raising work seen at a non-exempt site during Stage III is a violation on top of the Stage I dust rules.",
+    "violation_types": ["construction_dust"],
+    "source": "CAQM GRAP Stage III actions. VERIFY the exemption list in the revised schedule approved 28 Sep 2026 before the demo."
+  }
+]

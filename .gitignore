@@ -1,0 +1,11 @@
+.env
+data/uploads/
+data/debug/
+data/*.db
+data/*.sqlite*
+node_modules/
+.venv/
+__pycache__/
+
+# Meta docs cache (Meta's content, not ours; see docs/META_API_NOTES.md)
+.meta-docs/
