@@ -32,7 +32,7 @@ RULES = {r["id"]: r for r in db.load_rules()}
 
 @asynccontextmanager
 async def lifespan(_app):
-    # Hugging Face Spaces wipes local storage on restart, so an empty database gets the demo reports.
+    # Cloud Run's filesystem resets when the instance restarts, so an empty database gets the demo reports.
     # In a thread: the seed runs the scripted agent, whose SAM parsing calls asyncio.run.
     if not db.list_reports():
         await asyncio.to_thread(seed_demo)

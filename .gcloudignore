@@ -1,0 +1,19 @@
+# What `gcloud run deploy --source .` leaves out of the upload. Secrets and local data never leave the machine.
+.env*
+.git/
+.gitignore
+.claude/
+.meta-docs/
+.vercel/
+frontend/
+docs/
+samples/
+data/uploads/
+data/debug/
+data/*.db
+data/*.sqlite*
+backend/.venv/
+__pycache__/
+.pytest_cache/
+*.pem
+.DS_Store

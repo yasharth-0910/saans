@@ -18,7 +18,7 @@ Flow:
 
 - Backend: Python 3.11, FastAPI, `openai` SDK, `meta-sam-parser`, OpenCV, ffmpeg, SQLite
 - Frontend: Next.js (TypeScript, App Router), `@meta-sam/parser`, `@meta-sam/graphics`, `@meta-sam/video`, `@meta-sam/react` for mask overlays on video, Leaflet + OpenStreetMap for the map
-- Deploy: Vercel for frontend, Hugging Face Spaces (Docker) for backend
+- Deploy: Vercel for frontend, Google Cloud Run for backend
 
 ## Meta Model API
 

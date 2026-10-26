@@ -1,65 +1,142 @@
 # Deploying Saans
 
-Backend: Hugging Face Spaces (Docker). Frontend: Vercel. Do the backend first, because the frontend needs its URL.
+Backend: Google Cloud Run. Frontend: Vercel. Do the backend first, because the frontend needs its URL.
 
-## 1. Backend on Hugging Face Spaces
+Run every command from the repo root.
 
-### Create the Space
+## 1. Backend on Google Cloud Run
 
-1. Go to https://huggingface.co/new-space.
-2. Name it, for example `saans-api`.
-3. SDK: **Docker**, template: **Blank**.
-4. Hardware: **CPU basic** (free).
-5. Visibility: **Public**. The browser calls the API directly, and a private Space would need a token.
-6. Click **Create Space**. Keep the README.md it creates: its header (`sdk: docker`) tells Spaces to build the Dockerfile, and the default port is 7860, which is what the app listens on.
-
-The API URL will be `https://<your-username>-saans-api.hf.space` (lowercase, dots and underscores become hyphens). You can copy it from the Space page: **⋯ menu → Embed this Space → Direct URL**.
-
-### Set secrets and variables
-
-In the Space: **Settings → Variables and secrets**.
-
-| Kind | Name | Value |
-|---|---|---|
-| Secret | `MODEL_API_KEY` | your Meta Model API key |
-| Variable | `USE_MOCK` | `1` for the scripted demo agent, `0` for real Meta API calls |
-| Variable | `FRONTEND_ORIGIN` | `http://localhost:3000` for now; replaced with the Vercel URL in step 3 |
-
-`FRONTEND_ORIGIN` is a comma-separated list, for example `https://saans.vercel.app,http://localhost:3000`. No trailing slash.
-
-### Upload the code
-
-From the repo root, once:
+### Install the gcloud CLI (macOS)
 
 ```bash
-backend/.venv/bin/pip install -U huggingface_hub
+brew install --cask gcloud-cli
 ```
 
 ```bash
-backend/.venv/bin/hf auth login
+gcloud init
 ```
 
-Paste a token with **write** access from https://huggingface.co/settings/tokens.
+`gcloud init` opens the browser to sign in. When it asks for a project, choose **Create a new project** or skip; the next step creates one.
 
-Then upload (run this again after every backend change; each upload triggers a rebuild):
+### Create a project
+
+The project ID must be unique across all of Google Cloud: lowercase letters, digits and hyphens, 6 to 30 characters. Pick one and keep it in a shell variable for the rest of this section:
 
 ```bash
-backend/.venv/bin/hf upload <your-username>/saans-api . . --repo-type space --include "Dockerfile" --include "backend/*" --include "data/grap_rules.json" --exclude "*/.venv/*" --exclude "*__pycache__*" --exclude "*.pytest_cache*" --exclude "*.env*"
+PROJECT_ID=saans-demo-<something-unique>
 ```
 
-This sends only the Dockerfile, `backend/` and the rules file. Any `.env` file, the database and uploads stay local; the API key reaches the Space only as the secret you set above.
+```bash
+gcloud projects create $PROJECT_ID --name="Saans"
+```
+
+```bash
+gcloud config set project $PROJECT_ID
+```
+
+### Enable billing
+
+Cloud Run needs a billing account, even though this setup should stay within the free tier. If you don't have one, create it at https://console.cloud.google.com/billing (card required). Then find its ID:
+
+```bash
+gcloud billing accounts list
+```
+
+```bash
+gcloud billing projects link $PROJECT_ID --billing-account=<ACCOUNT_ID>
+```
+
+### Set a budget alert
+
+In the console: **Billing → Budgets & alerts → Create budget**.
+
+1. Scope: this project only.
+2. Amount: a small fixed amount, for example 5 USD or 500 INR (it uses your billing account's currency).
+3. Alert thresholds: 50%, 90% and 100% of actual spend. Leave **Email alerts to billing admins** on.
+4. Click **Finish**.
+
+A budget only sends emails. It does not stop spending. `max-instances 1` below is what keeps the cost bounded.
+
+### Enable the APIs
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+```
+
+### Store the API key in Secret Manager
+
+This reads the key from your local `.env`, so it never appears on screen or in your shell history:
+
+```bash
+grep '^MODEL_API_KEY=' .env | cut -d= -f2- | tr -d '\n' | gcloud secrets create model-api-key --data-file=-
+```
+
+Let Cloud Run read it, and let Cloud Build build from source. Both run as the project's default compute service account:
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+```
+
+```bash
+gcloud secrets add-iam-policy-binding model-api-key --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
+```
+
+```bash
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" --role=roles/run.builder
+```
+
+### Deploy
+
+```bash
+gcloud run deploy saans-api --source . --region asia-south1 --memory 2Gi --cpu 1 --min-instances 0 --max-instances 1 --timeout 900 --allow-unauthenticated --set-env-vars "^@^USE_MOCK=1@FRONTEND_ORIGIN=http://localhost:3000" --set-secrets MODEL_API_KEY=model-api-key:latest
+```
+
+- The first time, it asks to create an Artifact Registry repository for the image. Answer **Y**.
+- `--source .` uploads the repo, minus everything in `.gcloudignore` (all `.env` files, the frontend, the local database and uploads), and builds it with the `Dockerfile` on Cloud Build.
+- `--max-instances 1` keeps a single copy of the SQLite database, so reports stay consistent. `--min-instances 0` lets the service scale to zero when idle, so it costs nothing then.
+- `--timeout 900` gives a real (`USE_MOCK=0`) video analysis up to 15 minutes. The default is 5.
+- `^@^` at the start of `--set-env-vars` makes `@` the separator between variables, because `FRONTEND_ORIGIN` itself contains commas.
+- `FRONTEND_ORIGIN` is a placeholder for now; step 3 sets it to the Vercel URL.
+
+When it finishes it prints the **Service URL**, for example `https://saans-api-xxxxxxxxxx.asia-south1.run.app`. To print it again:
+
+```bash
+gcloud run services describe saans-api --region asia-south1 --format='value(status.url)'
+```
+
+Run the same `gcloud run deploy` command again after every backend change.
 
 ### Check it
 
-Watch the **Logs** tab until it shows `Uvicorn running on http://0.0.0.0:7860`. Then:
-
 ```bash
-curl https://<your-username>-saans-api.hf.space/reports
+curl <SERVICE_URL>/reports
 ```
 
-You should get the 8 seeded demo reports. Storage on a Space is wiped whenever it restarts or rebuilds, so uploaded reports disappear and the demo reports come back automatically on the next start.
+You should get the 8 seeded demo reports. The first request after an idle spell takes a few seconds while an instance starts.
 
-A free Space goes to sleep after 48 hours without traffic. Open the Space page a few minutes before a demo to wake it.
+### Change env vars or the key later (no rebuild)
+
+These create a new revision from the same image, so they take seconds:
+
+```bash
+gcloud run services update saans-api --region asia-south1 --update-env-vars "^@^USE_MOCK=0@FRONTEND_ORIGIN=https://saans.vercel.app,http://localhost:3000"
+```
+
+To replace the API key, add a new secret version (again read from `.env`), then roll a revision so the service picks it up:
+
+```bash
+grep '^MODEL_API_KEY=' .env | cut -d= -f2- | tr -d '\n' | gcloud secrets versions add model-api-key --data-file=-
+```
+
+```bash
+gcloud run services update saans-api --region asia-south1 --update-secrets MODEL_API_KEY=model-api-key:latest
+```
+
+### What to expect from storage
+
+The container's filesystem is not persistent. It resets whenever the instance restarts, which with `min-instances 0` happens after it has been idle for a while, and on every deploy or env var change. User-submitted reports and their evidence can disappear then; only the seeded demo reports are guaranteed, because the API reseeds an empty database on startup. That is acceptable for the demo. Files written there also count against the 2 GiB of memory.
+
+Cloud Run rejects request bodies over 32 MiB, so uploads larger than that fail even though the API itself allows 200 MB. Keep demo clips short.
 
 ## 2. Frontend on Vercel
 
@@ -67,7 +144,7 @@ The code has to be on GitHub first (push the repo yourself).
 
 1. Go to https://vercel.com/new and import the GitHub repo.
 2. **Root Directory**: click **Edit** and pick `frontend`. Vercel detects Next.js; leave the build settings as they are.
-3. **Environment Variables**: add `NEXT_PUBLIC_API_URL` = `https://<your-username>-saans-api.hf.space` (no trailing slash), for Production and Preview.
+3. **Environment Variables**: add `NEXT_PUBLIC_API_URL` = your Cloud Run service URL (no trailing slash), for Production and Preview.
 4. Click **Deploy**.
 
 `NEXT_PUBLIC_API_URL` is baked in at build time, and the build fails if it is missing. If you change it later, redeploy: **Deployments → ⋯ on the latest → Redeploy**.
@@ -76,12 +153,30 @@ Note the production URL Vercel gives you, for example `https://saans.vercel.app`
 
 ## 3. Connect the two
 
-1. In the Space: **Settings → Variables and secrets**, set `FRONTEND_ORIGIN` to the Vercel production URL, for example `https://saans.vercel.app,http://localhost:3000`.
-2. The Space restarts on its own after the change. If it doesn't, use **Settings → Factory rebuild**.
-3. Open the Vercel URL. The map should show the demo reports. Open one, then try **/new** with a photo.
+1. Allow the Vercel URL in the API's CORS list:
+
+   ```bash
+   gcloud run services update saans-api --region asia-south1 --update-env-vars "^@^FRONTEND_ORIGIN=https://saans.vercel.app,http://localhost:3000"
+   ```
+
+2. Open the Vercel URL. The map should show the demo reports. Open one, then try **/new** with a photo.
 
 Vercel preview deployments get their own URLs, which are not in `FRONTEND_ORIGIN`, so their API calls are blocked by CORS. Add a preview URL to the list if you need it.
 
 ## Switching to the real agent
 
-Set the Space variable `USE_MOCK` to `0`. `MODEL_API_KEY` must be set as a secret. No frontend change needed.
+```bash
+gcloud run services update saans-api --region asia-south1 --update-env-vars USE_MOCK=0
+```
+
+`MODEL_API_KEY` is already wired in from Secret Manager. No frontend change needed.
+
+## Testing the image locally
+
+```bash
+docker build -t saans-api . && docker run --rm -p 8080:8080 -e FRONTEND_ORIGIN=http://localhost:3000 saans-api
+```
+
+```bash
+curl 127.0.0.1:8080/reports
+```
